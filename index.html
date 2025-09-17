@@ -3,91 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple AI Alpha 0.1</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: #f0f0f0;
-            margin: 0;
-        }
-        h1 {
-            color: #333;
-        }
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-        .input-container {
-            margin: 1rem 0;
-        }
-        button {
-            padding: 0.5rem 1rem;
-            margin: 0.5rem;
-            border: none;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            font-size: 1.2rem;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        button.selected {
-            background-color: #28a745; /* Зеленый для выбранного значения */
-        }
-        #predict {
-            background-color: #ff9900;
-            margin-top: 1rem;
-        }
-        #result {
-            margin-top: 1rem;
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-        .training-status {
-            margin-top: 1rem;
-            font-style: italic;
-            color: #666;
-        }
-    </style>
+    <title>AI Чат Alpha 0.2</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Simple AI Alpha 0.1</h1>
-        <p>Нейросеть, которая предсказывает XOR</p>
-
-        <div class="input-container">
-            <p>Выберите первый вход (A):</p>
-            <button id="a-0" onclick="selectInput('a', 0)">0</button>
-            <button id="a-1" onclick="selectInput('a', 1)">1</button>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>AI Чат 🤖</h1>
+            <p>Версия Alpha 0.2</p>
         </div>
-
-        <div class="input-container">
-            <p>Выберите второй вход (B):</p>
-            <button id="b-0" onclick="selectInput('b', 0)">0</button>
-            <button id="b-1" onclick="selectInput('b', 1)">1</button>
+        <div id="chat-messages" class="chat-messages">
+            <div class="message bot-message">
+                <div class="message-text">Привет! Я простой AI, который отвечает на вопросы. Спроси меня о чём-нибудь!</div>
+            </div>
         </div>
-
-        <button id="predict" onclick="predict()">Предсказать результат (A XOR B)</button>
-
-        <div id="result">Результат: -</div>
-        <div class="training-status" id="status">Статус: Модель не обучена. Нажмите "Обучить модель".</div>
-        <button id="train" onclick="trainModel()">Обучить модель</button>
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Напишите сообщение..." autocomplete="off">
+            <button id="send-button">Отправить</button>
+        </div>
+        <div id="status" class="status">Загрузка модели...</div>
     </div>
 
-    <!-- Подключаем TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
-    <!-- Наш скрипт -->
+    <!-- Подключаем TensorFlow.js и Universal Sentence Encoder -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
     <script src="script.js"></script>
 </body>
 </html>
