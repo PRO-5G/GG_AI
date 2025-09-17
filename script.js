@@ -1,88 +1,131 @@
-// Определяем модель
 let model;
+let knowledgeBase = [];
 
-// Данные для обучения XOR
-const trainingData = {
-    inputs: tf.tensor2d([[0, 0], [0, 1], [1, 0], [1, 1]]),
-    labels: tf.tensor2d([[0], [1], [1], [0]])
-};
+// База знаний: вопросы и ответы
+const qaPairs = [
+    { question: "Привет", answer: "Привет! Как дела?" },
+    { question: "Как дела?", answer: "У меня всё отлично! Работаю в браузере :) А у тебя?" },
+    { question: "Что ты умеешь?", answer: "Я пока только учусь. Могу отвечать на простые вопросы." },
+    { question: "Как тебя зовут?", answer: "Меня зовут AI Чат Alpha 0.2!" },
+    { question: "Создатель", answer: "Меня создал крутой разработчик на TensorFlow.js!" },
+    { question: "Что такое искусственный интеллект?", answer: "ИИ — это область компьютерных наук, которая занимается созданием машин, способных выполнять задачи, требующие человеческого интеллекта." },
+    { question: "Пока", answer: "Пока! Было приятно пообщаться!" }
+];
 
-// Выбранные пользователем значения
-let userInput = { a: null, b: null };
-
-// Функция выбора ввода
-function selectInput(input, value) {
-    userInput[input] = value;
-    // Визуально выделяем выбранную кнопку
-    document.querySelectorAll(`button[id^="${input}-"]`).forEach(btn => {
-        btn.classList.remove('selected');
-    });
-    document.getElementById(`${input}-${value}`).classList.add('selected');
-    console.log(`Выбрано: A=${userInput.a}, B=${userInput.b}`);
-}
-
-// Функция создания и обучения модели
-async function trainModel() {
+// Загрузка модели и инициализация
+async function initializeChat() {
     const statusElement = document.getElementById('status');
-    statusElement.textContent = 'Статус: Создание модели...';
+    statusElement.textContent = 'Загрузка модели...';
 
-    // Создаем последовательную модель
-    model = tf.sequential();
+    try {
+        // Загружаем модель для кодирования предложений
+        model = await use.load();
+        statusElement.textContent = 'Модель загружена!';
 
-    // Добавляем слои
-    model.add(tf.layers.dense({ units: 4, inputShape: [2], activation: 'sigmoid' })); // Скрытый слой
-    model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' })); // Выходной слой
+        // Подготавливаем базу знаний: кодируем все вопросы
+        knowledgeBase = await encodeQuestions();
+    } catch (error) {
+        console.error('Ошибка загрузки модели:', error);
+        statusElement.textContent = 'Ошибка загрузки модели.';
+    }
+}
 
-    // Компилируем модель
-    model.compile({
-        optimizer: tf.train.adam(0.1), // Оптимизатор с learning rate
-        loss: 'meanSquaredError' // Функция потерь
+// Кодируем все вопросы из базы знаний
+async function encodeQuestions() {
+    const questions = qaPairs.map(qa => qa.question);
+    const embeddings = await model.embed(questions);
+    return qaPairs.map((qa, index) => {
+        return {
+            question: qa.question,
+            answer: qa.answer,
+            embedding: embeddings.slice([index, 0], [1])
+        };
     });
+}
 
-    statusElement.textContent = 'Статус: Идет обучение... (это займет ~10 секунд)';
+// Поиск наиболее похожего вопроса
+async findMostSimilar(userEmbedding) {
+    let maxSimilarity = -1;
+    let bestAnswer = "Извини, я не понял вопрос. Попробуй перефразировать!";
 
-    // Обучаем модель
-    await model.fit(trainingData.inputs, trainingData.labels, {
-        epochs: 250, // Количество эпох
-        shuffle: true, // Перемешивать данные каждую эпоху
-        callbacks: {
-            onEpochEnd: (epoch, logs) => {
-                // Можно раскомментировать, чтобы видеть процесс обучения в консоли
-                // console.log(`Эпоха ${epoch + 1}/250, Ошибка: ${logs.loss}`);
-            }
+    for (const item of knowledgeBase) {
+        const similarity = await computeCosineSimilarity(userEmbedding, item.embedding);
+        if (similarity > maxSimilarity) {
+            maxSimilarity = similarity;
+            bestAnswer = item.answer;
         }
-    });
+    }
 
-    statusElement.textContent = 'Статус: Модель обучена! Можешь делать предсказания.';
-    alert('Обучение завершено!');
+    // Порог сходства (настрой под себя)
+    if (maxSimilarity < 0.5) {
+        return "Извини, я не понял вопрос. Попробуй перефразировать!";
+    }
+
+    return bestAnswer;
 }
 
-// Функция предсказания
-function predict() {
+// Вычисление косинусного сходства
+async function computeCosineSimilarity(embedding1, embedding2) {
+    const dotProduct = embedding1.dot(embedding2.transpose()).dataSync()[0];
+    const norm1 = embedding1.norm().dataSync()[0];
+    const norm2 = embedding2.norm().dataSync()[0];
+    return dotProduct / (norm1 * norm2);
+}
+
+// Отправка сообщения
+async function sendMessage() {
+    const userInput = document.getElementById('user-input');
+    const message = userInput.value.trim();
+
+    if (!message) return;
+
+    // Добавляем сообщение пользователя в чат
+    addMessage(message, 'user');
+    userInput.value = '';
+
+    // Если модель не загружена, ждём
     if (!model) {
-        alert('Сначала обучи модель!');
-        return;
-    }
-    if (userInput.a === null || userInput.b === null) {
-        alert('Выбери значения для A и B!');
+        addMessage("Модель ещё загружается...", 'bot');
         return;
     }
 
-    // Преобразуем пользовательский ввод в тензор
-    const inputTensor = tf.tensor2d([[userInput.a, userInput.b]]);
-
-    // Делаем предсказание
-    const prediction = model.predict(inputTensor);
-
-    // Получаем значение из тензора и округляем его до 0 или 1
-    const result = prediction.dataSync()[0];
-    const roundedResult = Math.round(result);
-
-    // Выводим результат
-    document.getElementById('result').innerText = 
-        `Результат: ${roundedResult} (Уверенность: ${result.toFixed(3)})`;
-
-    // Очищаем память от тензоров
-    inputTensor.dispose();
-    prediction.dispose();
+    try {
+        // Кодируем вопрос пользователя
+        const userEmbedding = await model.embed([message]);
+        // Ищем ответ
+        const answer = await findMostSimilar(userEmbedding);
+        // Добавляем ответ бота
+        addMessage(answer, 'bot');
+    } catch (error) {
+        console.error('Ошибка:', error);
+        addMessage("Произошла ошибка :(", 'bot');
+    }
 }
+
+// Добавление сообщения в чат
+function addMessage(text, sender) {
+    const messagesContainer = document.getElementById('chat-messages');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', `${sender}-message`);
+
+    const textElement = document.createElement('div');
+    textElement.classList.add('message-text');
+    textElement.textContent = text;
+
+    messageElement.appendChild(textElement);
+    messagesContainer.appendChild(messageElement);
+
+    // Прокрутка вниз
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Обработчики событий
+document.getElementById('send-button').addEventListener('click', sendMessage);
+document.getElementById('user-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Инициализация чата при загрузке
+initializeChat();
